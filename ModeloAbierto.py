@@ -1,4 +1,4 @@
-import psycopg2
+import psycopg2 # pip install psycopg2-binary
 from psycopg2 import Error
 
 # Función para conectar a la base de datos
