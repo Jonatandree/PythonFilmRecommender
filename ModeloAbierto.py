@@ -1,111 +1,14 @@
 import psycopg2 # pip install psycopg2-binary
 from psycopg2 import Error
 from db.conectar import conectar
+from calculo.calcular_promedio import calcular_promedios
+from recomendaciones.generales import generar_recomendaciones_generales
 
-# Función para conectar a la base de datos
 conn = conectar()
 
 # Función para calcular promedios iniciales de calificaciones de las películas desde la base de datos
-def calcular_promedios(conn):
-    promedios = {}
-    try:
-        # Create a cursor object
-        cur = conn.cursor()
+calcular_promedios(conn)
 
-        # Execute query to fetch ratings data from database
-        cur.execute("""
-            SELECT ID_usuario, ID_película, Calificación
-            FROM Calificación
-        """)
-
-        # Fetch all rows from the result set
-        calificaciones = cur.fetchall()
-
-        # Process fetched data to calculate ratings averages
-        for cal in calificaciones:
-            usuario_id = cal[0]
-            pelicula_id = cal[1]
-            calificacion = cal[2]
-
-            if pelicula_id not in promedios:
-                # Fetch movie details from Película table
-                cur.execute("""
-                    SELECT Título, ID_género, ID_director
-                    FROM Película
-                    WHERE ID_película = %s
-                """, (pelicula_id,))
-                pelicula_info = cur.fetchone()
-
-                if pelicula_info:
-                    titulo = pelicula_info[0]
-                    id_genero = pelicula_info[1]
-                    id_director = pelicula_info[2]
-
-                    promedios[pelicula_id] = {'Título': titulo, 'ID_género': id_genero, 'ID_director': id_director, 'calificaciones': []}
-
-            promedios[pelicula_id]['calificaciones'].append(calificacion)
-
-        # Calculate averages for each movie
-        for pelicula_id in promedios:
-            calificaciones = promedios[pelicula_id]['calificaciones']
-            promedios[pelicula_id]['promedio'] = sum(calificaciones) / len(calificaciones)
-
-        return promedios
-
-    except (Exception, psycopg2.Error) as error:
-        print("Error fetching data from PostgreSQL:", error)
-        return None
-    finally:
-        # Close the cursor (if it exists) and connection
-        if 'cur' in locals() and cur is not None:
-            cur.close()
-
-# Función para generar recomendaciones generales para todos los usuarios
-def generar_recomendaciones_generales(conn, promedios):
-    recomendaciones_generales = []
-    try:
-        # Create a cursor object
-        cur = conn.cursor()
-
-        # Execute query to fetch movies with high ratings
-        cur.execute("""
-            SELECT p.Título, p.ID_género, p.ID_director, pr.promedio
-            FROM Película p
-            JOIN (
-                SELECT ID_película, AVG(Calificación) AS promedio
-                FROM Calificación
-                GROUP BY ID_película
-                HAVING AVG(Calificación) >= 4.5
-            ) pr ON p.ID_película = pr.ID_película
-            ORDER BY pr.promedio DESC
-        """)
-
-        # Fetch all rows from the result set
-        recomendaciones = cur.fetchall()
-
-        # Process fetched data
-        for rec in recomendaciones:
-            titulo = rec[0]
-            id_genero = rec[1]
-            id_director = rec[2]
-            promedio = rec[3]
-
-            recomendaciones_generales.append({
-                'Título': titulo,
-                'ID_género': id_genero,
-                'ID_director': id_director,
-                'promedio': promedio
-            })
-
-        return recomendaciones_generales
-
-    except (Exception, psycopg2.Error) as error:
-        print("Error fetching data from PostgreSQL:", error)
-        return None
-    finally:
-        # Close the cursor (if it exists) and connection
-        if 'cur' in locals() and cur is not None:
-            cur.close()
 # Conectar a la base de datos
 conn = conectar()
 if conn:
